@@ -1,0 +1,135 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'httparty'
+require 'net/ping'
+
+class TorHostFinder
+  def initialize(country, ip, host_count = 10)
+    abort 'Must provide country' if country.nil?
+    abort 'Must provide ip' if ip.nil?
+
+    @country = country.downcase
+    @ip = ip
+    @count = host_count
+
+    @tor_ignore_host_file = File.absolute_path('.tor_ignore_hosts', Dir.home)
+    IO.write(@tor_ignore_host_file, "[]") unless File.exists?(@tor_ignore_host_file)
+    @tor_hosts_file = File.absolute_path(".tor_#{@country}_hosts", Dir.home)
+    IO.write(@tor_hosts_file, "[]") unless File.exists?(@tor_hosts_file)
+
+    @ignore_ips = eval File.read(@tor_ignore_host_file)
+    @country_ips = eval File.read(@tor_hosts_file)
+    @new_ignore = []
+  end
+
+  def find
+    begin
+      puts 'retrieving server ips...'
+      resp = HTTParty.get("https://check.torproject.org/cgi-bin/TorBulkExitList.py?ip=#{@ip}")
+    rescue Errno::ETIMEDOUT
+      puts 'timeout. retrying...'
+      retry
+    end
+
+    ips = resp.body.split("\n").select { |l| l !~ /^\#/ }
+    ips = ips - @country_ips - @ignore_ips
+
+    puts 'retrieving server countries...'
+    ips.each_slice(10) do |ip_slice|
+      ip_thread_results(ip_slice, ip_country_lambda) do |c|
+        raise c[:country] if c[:country] =~ /rate limit exceeded/i
+        us = c[:country] =~ /#{@country}/i
+        us ? (@country_ips << c[:ip]) : (@new_ignore << c[:ip])
+      end
+    end
+
+  rescue Interrupt
+    puts "\nretrieval of tor servers interrupted..."
+  rescue => e
+    e.message =~ /rate limit exceeded/i ? (puts e) : (raise e)
+  ensure
+    puts "saving known servers..."
+    IO.write(@tor_hosts_file, @country_ips)
+    IO.write(@tor_ignore_host_file, (@ignore_ips | @new_ignore))
+
+    puts "retrieving server ping times..."
+    print_fastest_servers
+  end
+
+  private
+
+  def print_fastest_servers
+    ips_with_time = []
+    @country_ips.each_slice(10) do |ip_slice|
+      ip_thread_results(ip_slice, ip_ping_lambda) do |ping|
+        next if ping[:time].nil?
+        ips_with_time << ping
+      end
+    end
+
+    puts "#{@count} fastest US tor servers"
+    puts ips_with_time.
+      sort { |a, b| a[:time] <=> b[:time] }[0..@count].
+      map { |i| i[:ip] }.
+      join(", ")
+  end
+
+  def ip_country_lambda
+    -> (ip) do
+      {
+        ip: ip,
+        country: HTTParty.get("http://ipinfo.io/#{ip}/country").strip
+      }
+    end
+  end
+
+  def ip_ping_lambda
+    -> (ip) do
+      ping = Net::Ping::External.new(ip)
+      ping.ping?
+
+      {
+        ip: ip,
+        time: ping.duration
+      }
+    end
+  end
+
+  def ip_thread_results(ip_slice, lam)
+    thread_results = []
+
+    ip_threads(ip_slice) do |ip|
+      thread_results << lam.call(ip)
+    end
+
+    thread_results.each { |r| yield r }
+  end
+
+
+  def ip_threads(ip_slice)
+    ip_slice.map do |ip|
+      thread { yield ip }
+    end.each { |t| t.join }
+  end
+
+  def thread
+    Thread.new do
+      retries = 0
+      begin
+        yield
+      rescue => e
+        retry if retries < 2
+        retries += 1
+      end
+    end
+  end
+end
+
+if ARGV.empty?
+  puts "fth <country symbol> <ip address> [num results]   : results default is 10"
+  puts "\nExample: fth us 123.456.78.9"
+  puts "Example: fth us 123.456.78.9 5"
+else
+  TorHostFinder.new(ARGV[0], ARGV[1], ARGV[2].to_i).find
+end
