@@ -14,7 +14,7 @@ ftc <country symbol> <ip address> [number of results]
 ```
 
 # Examples
-Retrieve 5 US ip addresses of tor servers with the fastest connections based on ping results from 123.456.78.9 (Use your external router ip address)
+Retrieve 5 US ip addresses of tor servers with the fastest connections based on ping results from 123.456.78.9 (Use your external router ip address http://whatismyipaddress.com)
 ```
 ftc us 123.456.78.9 5
 ```
