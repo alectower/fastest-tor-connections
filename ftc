@@ -17,13 +17,13 @@ class TorHostFinder
     @tor_hosts_file = File.absolute_path(".tor_#{@country}_hosts", Dir.home)
 
     if File.exists?(@tor_ignore_host_file)
-      @ignore_ips = File.read(@tor_ignore_host_file).split(",")
+      @ignore_ips = File.read(@tor_ignore_host_file).strip.split(",")
     else
       @ignore_ips = []
     end
 
     if File.exists?(@tor_hosts_file)
-      @country_ips = File.read(@tor_hosts_file).split(",")
+      @country_ips = File.read(@tor_hosts_file).strip.split(",")
     else
       @country_ips = []
     end
