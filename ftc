@@ -25,7 +25,7 @@ class TorHostFinder
 
   def find
     begin
-      puts 'retrieving server ips...'
+      puts 'retrieving tor server ips...'
       resp = HTTParty.get("https://check.torproject.org/cgi-bin/TorBulkExitList.py?ip=#{@ip}")
     rescue Errno::ETIMEDOUT
       puts 'timeout. retrying...'
@@ -35,7 +35,7 @@ class TorHostFinder
     ips = resp.body.split("\n").select { |l| l !~ /^\#/ }
     ips = ips - @country_ips - @ignore_ips
 
-    puts 'retrieving server countries...'
+    puts 'retrieving tor server countries...'
     ips.each_slice(10) do |ip_slice|
       ip_thread_results(ip_slice, ip_country_lambda) do |c|
         raise c[:country] if c[:country] =~ /rate limit exceeded/i
@@ -49,11 +49,11 @@ class TorHostFinder
   rescue => e
     e.message =~ /rate limit exceeded/i ? (puts e) : (raise e)
   ensure
-    puts "saving known servers..."
+    puts "saving known tor servers..."
     IO.write(@tor_hosts_file, @country_ips)
     IO.write(@tor_ignore_host_file, (@ignore_ips | @new_ignore))
 
-    puts "retrieving server ping times..."
+    puts "retrieving tor server ping times..."
     print_fastest_servers
   end
 
@@ -68,7 +68,7 @@ class TorHostFinder
       end
     end
 
-    puts "#{@count} fastest US tor servers"
+    puts "#{@count} fastest #{@country} tor connections"
     puts ips_with_time.
       sort { |a, b| a[:time] <=> b[:time] }[0..@count].
       map { |i| i[:ip] }.
