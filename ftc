@@ -14,12 +14,20 @@ class TorHostFinder
     @count = host_count
 
     @tor_ignore_host_file = File.absolute_path('.tor_ignore_hosts', Dir.home)
-    IO.write(@tor_ignore_host_file, "[]") unless File.exists?(@tor_ignore_host_file)
     @tor_hosts_file = File.absolute_path(".tor_#{@country}_hosts", Dir.home)
-    IO.write(@tor_hosts_file, "[]") unless File.exists?(@tor_hosts_file)
 
-    @ignore_ips = eval File.read(@tor_ignore_host_file)
-    @country_ips = eval File.read(@tor_hosts_file)
+    if File.exists?(@tor_ignore_host_file)
+      @ignore_ips = File.read(@tor_ignore_host_file).split(",")
+    else
+      @ignore_ips = []
+    end
+
+    if File.exists?(@tor_hosts_file)
+      @country_ips = File.read(@tor_hosts_file).split(",")
+    else
+      @country_ips = []
+    end
+
     @new_ignore = []
   end
 
@@ -50,8 +58,8 @@ class TorHostFinder
     e.message =~ /rate limit exceeded/i ? (puts e) : (raise e)
   ensure
     puts "saving known tor servers..."
-    IO.write(@tor_hosts_file, @country_ips)
-    IO.write(@tor_ignore_host_file, (@ignore_ips | @new_ignore))
+    IO.write(@tor_hosts_file, @country_ips.join(","))
+    IO.write(@tor_ignore_host_file, (@ignore_ips | @new_ignore).join(","))
 
     puts "retrieving tor server ping times..."
     print_fastest_servers
