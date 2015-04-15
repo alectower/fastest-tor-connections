@@ -18,3 +18,7 @@ Retrieve 5 US ip addresses of tor servers with the fastest connections based on 
 ```
 ftc us 123.456.78.9 5
 ```
+
+# Limitations
+
+Country information for ip addresses is retrieved through http://ipinfo.io which has a request limit of 1000/day
