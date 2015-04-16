@@ -21,4 +21,5 @@ ftc us 123.456.78.9 5
 
 # Limitations
 
-Country information for ip addresses is retrieved through http://ipinfo.io which has a request limit of 1000/day
+* Country information for ip addresses is retrieved through http://ipinfo.io which has a request limit of 1000/day
+* Some ips gathered from https://check.torproject.org/cgi-bin/TorBulkExitList.py?ip=<ip> don't work when added to .torrc, even after getting successful ping response
