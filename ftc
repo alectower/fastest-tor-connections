@@ -47,8 +47,11 @@ class TorHostFinder
     ips.each_slice(10) do |ip_slice|
       ip_thread_results(ip_slice, ip_country_lambda) do |c|
         raise c[:country] if c[:country] =~ /rate limit exceeded/i
-        us = c[:country] =~ /#{@country}/i
-        us ? (@country_ips << c[:ip]) : (@new_ignore << c[:ip])
+        if c[:country].downcase == @country
+          @country_ips << c[:ip]
+        else
+          @new_ignore << c[:ip]
+        end
       end
     end
 
